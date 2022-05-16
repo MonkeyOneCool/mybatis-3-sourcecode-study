@@ -25,6 +25,7 @@ public interface Interceptor {
   Object intercept(Invocation invocation) throws Throwable;
 
   default Object plugin(Object target) {
+    //默认实现，自定义的插件可以覆写
     return Plugin.wrap(target, this);
   }
 

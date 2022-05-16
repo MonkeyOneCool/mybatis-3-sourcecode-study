@@ -15,6 +15,9 @@
  */
 package org.apache.ibatis.plugin;
 
+import org.apache.ibatis.reflection.ExceptionUtil;
+import org.apache.ibatis.util.MapUtil;
+
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -22,9 +25,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-
-import org.apache.ibatis.reflection.ExceptionUtil;
-import org.apache.ibatis.util.MapUtil;
 
 /**
  * @author Clinton Begin
@@ -42,14 +42,17 @@ public class Plugin implements InvocationHandler {
   }
 
   public static Object wrap(Object target, Interceptor interceptor) {
+    //获取@Intercepts中的@Signature中的type
     Map<Class<?>, Set<Method>> signatureMap = getSignatureMap(interceptor);
     Class<?> type = target.getClass();
     Class<?>[] interfaces = getAllInterfaces(type, signatureMap);
+    //如果当前代理的类和@Intercepts中的@Signature中的type类型可以配对上
     if (interfaces.length > 0) {
+      //则可以进行动态代理，返回代理类。等到具体调用executor的方法时会调用到插件的invoke方法
       return Proxy.newProxyInstance(
-          type.getClassLoader(),
-          interfaces,
-          new Plugin(target, interceptor, signatureMap));
+        type.getClassLoader(),
+        interfaces,
+        new Plugin(target, interceptor, signatureMap));
     }
     return target;
   }
@@ -59,8 +62,13 @@ public class Plugin implements InvocationHandler {
     try {
       Set<Method> methods = signatureMap.get(method.getDeclaringClass());
       if (methods != null && methods.contains(method)) {
+        /*
+        如果当前方法是插件注解上的方法的话，调用插件的intercept方法
+        intercept方法内部调用invocation.proceed()方法即可调用到目标方法
+         */
         return interceptor.intercept(new Invocation(target, method, args));
       }
+      //否则，直接调用目标方法
       return method.invoke(target, args);
     } catch (Exception e) {
       throw ExceptionUtil.unwrapThrowable(e);

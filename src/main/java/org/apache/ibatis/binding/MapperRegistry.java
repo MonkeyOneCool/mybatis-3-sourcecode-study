@@ -38,11 +38,17 @@ public class MapperRegistry {
 
   @SuppressWarnings("unchecked")
   public <T> T getMapper(Class<T> type, SqlSession sqlSession) {
+    /*
+    获取缓存中的值
+    还记得之前在第2小节中调用的addMapper方法吗？在其中会往knownMappers里添加MapperProxyFactory。
+    而这里就是从其中拿出mapper接口
+     */
     final MapperProxyFactory<T> mapperProxyFactory = (MapperProxyFactory<T>) knownMappers.get(type);
     if (mapperProxyFactory == null) {
       throw new BindingException("Type " + type + " is not known to the MapperRegistry.");
     }
     try {
+      //开始动态代理
       return mapperProxyFactory.newInstance(sqlSession);
     } catch (Exception e) {
       throw new BindingException("Error getting mapper instance. Cause: " + e, e);

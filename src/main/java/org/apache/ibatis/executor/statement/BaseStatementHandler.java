@@ -15,10 +15,6 @@
  */
 package org.apache.ibatis.executor.statement;
 
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
-
 import org.apache.ibatis.executor.ErrorContext;
 import org.apache.ibatis.executor.Executor;
 import org.apache.ibatis.executor.ExecutorException;
@@ -32,6 +28,10 @@ import org.apache.ibatis.session.Configuration;
 import org.apache.ibatis.session.ResultHandler;
 import org.apache.ibatis.session.RowBounds;
 import org.apache.ibatis.type.TypeHandlerRegistry;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
 
 /**
  * @author Clinton Begin
@@ -66,8 +66,15 @@ public abstract class BaseStatementHandler implements StatementHandler {
 
     this.boundSql = boundSql;
 
+    //创建一个ParameterHandler（ParameterHandler的插件会在此处执行）
     this.parameterHandler = configuration.newParameterHandler(mappedStatement, parameterObject, boundSql);
+    //创建一个ResultSetHandler（ResultSetHandler的插件会在此处执行）
     this.resultSetHandler = configuration.newResultSetHandler(executor, mappedStatement, rowBounds, parameterHandler, resultHandler, boundSql);
+    /*
+    注：在上面小节的最后提到了不同type的插件的执行顺序，从这里也就能看到了。会按照Executor->StatementHandler->ParameterHandler->ResultSetHandler
+    的执行顺序执行（Executor的插件会在sqlSessionFactory.openSession方法中提前执行）
+    另外，通过全局搜索MyBatis的源码发现，插件的执行时机只在上面的四个对象中有介入。这也就意味着只能对上面的四个对象做插件上的增强，其它类型的插件即使写了，也不会生效
+     */
   }
 
   @Override

@@ -27,6 +27,10 @@ public class InterceptorChain {
   private final List<Interceptor> interceptors = new ArrayList<>();
 
   public Object pluginAll(Object target) {
+    /*
+    可以看到这里就是遍历调用每一个拦截器的plugin方法
+    plugin方法的默认实现是会生成一个代理类，所以如果有多个插件的话，这里执行的效果就是代理类又被代理了，这么一直嵌套代理下去
+     */
     for (Interceptor interceptor : interceptors) {
       target = interceptor.plugin(target);
     }

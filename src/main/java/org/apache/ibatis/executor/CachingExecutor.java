@@ -15,22 +15,18 @@
  */
 package org.apache.ibatis.executor;
 
-import java.sql.SQLException;
-import java.util.List;
-
 import org.apache.ibatis.cache.Cache;
 import org.apache.ibatis.cache.CacheKey;
 import org.apache.ibatis.cache.TransactionalCacheManager;
 import org.apache.ibatis.cursor.Cursor;
-import org.apache.ibatis.mapping.BoundSql;
-import org.apache.ibatis.mapping.MappedStatement;
-import org.apache.ibatis.mapping.ParameterMapping;
-import org.apache.ibatis.mapping.ParameterMode;
-import org.apache.ibatis.mapping.StatementType;
+import org.apache.ibatis.mapping.*;
 import org.apache.ibatis.reflection.MetaObject;
 import org.apache.ibatis.session.ResultHandler;
 import org.apache.ibatis.session.RowBounds;
 import org.apache.ibatis.transaction.Transaction;
+
+import java.sql.SQLException;
+import java.util.List;
 
 /**
  * @author Clinton Begin
@@ -84,28 +80,36 @@ public class CachingExecutor implements Executor {
 
   @Override
   public <E> List<E> query(MappedStatement ms, Object parameterObject, RowBounds rowBounds, ResultHandler resultHandler) throws SQLException {
+    //解析sql
     BoundSql boundSql = ms.getBoundSql(parameterObject);
+    //生成缓存key
     CacheKey key = createCacheKey(ms, parameterObject, rowBounds, boundSql);
     return query(ms, parameterObject, rowBounds, resultHandler, key, boundSql);
   }
 
   @Override
   public <E> List<E> query(MappedStatement ms, Object parameterObject, RowBounds rowBounds, ResultHandler resultHandler, CacheKey key, BoundSql boundSql)
-      throws SQLException {
+    throws SQLException {
+    //是否开启二级缓存
     Cache cache = ms.getCache();
     if (cache != null) {
+      //是否需要刷新缓存
       flushCacheIfRequired(ms);
       if (ms.isUseCache() && resultHandler == null) {
         ensureNoOutParams(ms, boundSql);
+        //之前的第2.1小节说过，二级缓存使用了装饰者模式，一个包装一个。所以这里就是在一个一个调用它们的getObject方法（装饰者+责任链）
         @SuppressWarnings("unchecked")
         List<E> list = (List<E>) tcm.getObject(cache, key);
         if (list == null) {
+          //如果二级缓存中找不到的话，就从一级缓存/数据库中查找
           list = delegate.query(ms, parameterObject, rowBounds, resultHandler, key, boundSql);
+          //加入到二级缓存中
           tcm.putObject(cache, key, list); // issue #578 and #116
         }
         return list;
       }
     }
+    //没有开启二级缓存，就直接去一级缓存/数据库中查找
     return delegate.query(ms, parameterObject, rowBounds, resultHandler, key, boundSql);
   }
 

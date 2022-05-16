@@ -15,13 +15,13 @@
  */
 package org.apache.ibatis.binding;
 
+import org.apache.ibatis.binding.MapperProxy.MapperMethodInvoker;
+import org.apache.ibatis.session.SqlSession;
+
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-
-import org.apache.ibatis.binding.MapperProxy.MapperMethodInvoker;
-import org.apache.ibatis.session.SqlSession;
 
 /**
  * @author Lasse Voss
@@ -45,7 +45,8 @@ public class MapperProxyFactory<T> {
 
   @SuppressWarnings("unchecked")
   protected T newInstance(MapperProxy<T> mapperProxy) {
-    return (T) Proxy.newProxyInstance(mapperInterface.getClassLoader(), new Class[] { mapperInterface }, mapperProxy);
+    //从这里就可以看到，MyBatis就是通过JDK动态代理生成的Mapper实现类
+    return (T) Proxy.newProxyInstance(mapperInterface.getClassLoader(), new Class[]{mapperInterface}, mapperProxy);
   }
 
   public T newInstance(SqlSession sqlSession) {

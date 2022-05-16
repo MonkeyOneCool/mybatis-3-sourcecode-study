@@ -15,11 +15,11 @@
  */
 package org.apache.ibatis.cache;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import org.apache.ibatis.cache.decorators.TransactionalCache;
 import org.apache.ibatis.util.MapUtil;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * @author Clinton Begin
@@ -53,6 +53,11 @@ public class TransactionalCacheManager {
   }
 
   private TransactionalCache getTransactionalCache(Cache cache) {
+    /*
+    这里的作用是将Cache最外面再包一层TransactionalCache
+    TransactionalCache内部会暂存所有的二级缓存，其内部的putObject方法并不会直接去调用二级缓存的putObject方法，
+    而是等到调用commit方法时才会去调用二级缓存的putObject方法；当调用rollback方法时会调用二级缓存的removeObject方法
+     */
     return MapUtil.computeIfAbsent(transactionalCaches, cache, TransactionalCache::new);
   }
 
