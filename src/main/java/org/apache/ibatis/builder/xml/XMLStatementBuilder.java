@@ -15,23 +15,19 @@
  */
 package org.apache.ibatis.builder.xml;
 
-import java.util.List;
-import java.util.Locale;
-
 import org.apache.ibatis.builder.BaseBuilder;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.apache.ibatis.executor.keygen.Jdbc3KeyGenerator;
 import org.apache.ibatis.executor.keygen.KeyGenerator;
 import org.apache.ibatis.executor.keygen.NoKeyGenerator;
 import org.apache.ibatis.executor.keygen.SelectKeyGenerator;
-import org.apache.ibatis.mapping.MappedStatement;
-import org.apache.ibatis.mapping.ResultSetType;
-import org.apache.ibatis.mapping.SqlCommandType;
-import org.apache.ibatis.mapping.SqlSource;
-import org.apache.ibatis.mapping.StatementType;
+import org.apache.ibatis.mapping.*;
 import org.apache.ibatis.parsing.XNode;
 import org.apache.ibatis.scripting.LanguageDriver;
 import org.apache.ibatis.session.Configuration;
+
+import java.util.List;
+import java.util.Locale;
 
 /**
  * @author Clinton Begin
@@ -54,34 +50,48 @@ public class XMLStatementBuilder extends BaseBuilder {
   }
 
   public void parseStatementNode() {
+    //拿到增删改查节点的id属性
     String id = context.getStringAttribute("id");
+    //拿到增删改查节点的数据库厂商id
     String databaseId = context.getStringAttribute("databaseId");
 
+    //如果和当前数据源的数据库厂商id不匹配，则直接返回
     if (!databaseIdMatchesCurrent(id, databaseId, this.requiredDatabaseId)) {
       return;
     }
 
+    //获取节点名称（select|insert|update|delete）
     String nodeName = context.getNode().getNodeName();
+    //通过节点名称获取相应的枚举
     SqlCommandType sqlCommandType = SqlCommandType.valueOf(nodeName.toUpperCase(Locale.ENGLISH));
+    //判断是否是查询语句
     boolean isSelect = sqlCommandType == SqlCommandType.SELECT;
+    //获取flushCache属性（为空的话查sql不会刷新缓存，增删改sql会）
     boolean flushCache = context.getBooleanAttribute("flushCache", !isSelect);
+    //获取useCache属性（为空的话查sql会使用到缓存，增删改sql不会）
     boolean useCache = context.getBooleanAttribute("useCache", isSelect);
+    //是否需要分组
     boolean resultOrdered = context.getBooleanAttribute("resultOrdered", false);
 
     // Include Fragments before parsing
+    //解析include片段
     XMLIncludeTransformer includeParser = new XMLIncludeTransformer(configuration, builderAssistant);
     includeParser.applyIncludes(context.getNode());
 
+    //解析parameterType
     String parameterType = context.getStringAttribute("parameterType");
     Class<?> parameterTypeClass = resolveClass(parameterType);
 
     String lang = context.getStringAttribute("lang");
+    //获取自定义SQL脚本语言驱动
     LanguageDriver langDriver = getLanguageDriver(lang);
 
     // Parse selectKey after includes and remove them.
+    //解析selectKey节点（自增id）
     processSelectKeyNodes(id, parameterTypeClass, langDriver);
 
     // Parse the SQL (pre: <selectKey> and <include> were parsed and removed)
+    //设置自增列
     KeyGenerator keyGenerator;
     String keyStatementId = id + SelectKeyGenerator.SELECT_KEY_SUFFIX;
     keyStatementId = builderAssistant.applyCurrentNamespace(keyStatementId, true);
@@ -89,31 +99,43 @@ public class XMLStatementBuilder extends BaseBuilder {
       keyGenerator = configuration.getKeyGenerator(keyStatementId);
     } else {
       keyGenerator = context.getBooleanAttribute("useGeneratedKeys",
-          configuration.isUseGeneratedKeys() && SqlCommandType.INSERT.equals(sqlCommandType))
-          ? Jdbc3KeyGenerator.INSTANCE : NoKeyGenerator.INSTANCE;
+        configuration.isUseGeneratedKeys() && SqlCommandType.INSERT.equals(sqlCommandType))
+        ? Jdbc3KeyGenerator.INSTANCE : NoKeyGenerator.INSTANCE;
     }
 
+    /*
+    通过XMLLanguageDriver来解析SQL脚本，具体分为：
+    DynamicSqlSource：需要通过参数才能确定的SQL语句；
+    RawSqlSource：不需要通过参数就能确定的SQL语句。
+     */
     SqlSource sqlSource = langDriver.createSqlSource(configuration, context, parameterTypeClass);
+    //STATEMENT, PREPARED, CALLABLE，默认为PREPARED
     StatementType statementType = StatementType.valueOf(context.getStringAttribute("statementType", StatementType.PREPARED.toString()));
     Integer fetchSize = context.getIntAttribute("fetchSize");
     Integer timeout = context.getIntAttribute("timeout");
+    //解析parameterMap属性，不写的话会通过TypeHandler类型处理器来映射
     String parameterMap = context.getStringAttribute("parameterMap");
+    //解析resultType
     String resultType = context.getStringAttribute("resultType");
     Class<?> resultTypeClass = resolveClass(resultType);
+    //解析resultMap
     String resultMap = context.getStringAttribute("resultMap");
     String resultSetType = context.getStringAttribute("resultSetType");
     ResultSetType resultSetTypeEnum = resolveResultSetType(resultSetType);
     if (resultSetTypeEnum == null) {
       resultSetTypeEnum = configuration.getDefaultResultSetType();
     }
+    //解析keyProperty，仅适用于增改语句
     String keyProperty = context.getStringAttribute("keyProperty");
+    //解析keyColumn，仅适用于增改语句
     String keyColumn = context.getStringAttribute("keyColumn");
     String resultSets = context.getStringAttribute("resultSets");
 
+    //将解析完的select|insert|update|delete语句添加进MappedStatement对象中，并最终添加进Configuration对象中
     builderAssistant.addMappedStatement(id, sqlSource, statementType, sqlCommandType,
-        fetchSize, timeout, parameterMap, parameterTypeClass, resultMap, resultTypeClass,
-        resultSetTypeEnum, flushCache, useCache, resultOrdered,
-        keyGenerator, keyProperty, keyColumn, databaseId, langDriver, resultSets);
+      fetchSize, timeout, parameterMap, parameterTypeClass, resultMap, resultTypeClass,
+      resultSetTypeEnum, flushCache, useCache, resultOrdered,
+      keyGenerator, keyProperty, keyColumn, databaseId, langDriver, resultSets);
   }
 
   private void processSelectKeyNodes(String id, Class<?> parameterTypeClass, LanguageDriver langDriver) {
@@ -158,9 +180,9 @@ public class XMLStatementBuilder extends BaseBuilder {
     SqlCommandType sqlCommandType = SqlCommandType.SELECT;
 
     builderAssistant.addMappedStatement(id, sqlSource, statementType, sqlCommandType,
-        fetchSize, timeout, parameterMap, parameterTypeClass, resultMap, resultTypeClass,
-        resultSetTypeEnum, flushCache, useCache, resultOrdered,
-        keyGenerator, keyProperty, keyColumn, databaseId, langDriver, null);
+      fetchSize, timeout, parameterMap, parameterTypeClass, resultMap, resultTypeClass,
+      resultSetTypeEnum, flushCache, useCache, resultOrdered,
+      keyGenerator, keyProperty, keyColumn, databaseId, langDriver, null);
 
     id = builderAssistant.applyCurrentNamespace(id, false);
 

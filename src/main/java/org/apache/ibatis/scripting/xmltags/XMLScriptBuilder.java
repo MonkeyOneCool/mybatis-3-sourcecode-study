@@ -15,11 +15,6 @@
  */
 package org.apache.ibatis.scripting.xmltags;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import org.apache.ibatis.builder.BaseBuilder;
 import org.apache.ibatis.builder.BuilderException;
 import org.apache.ibatis.mapping.SqlSource;
@@ -28,6 +23,11 @@ import org.apache.ibatis.scripting.defaults.RawSqlSource;
 import org.apache.ibatis.session.Configuration;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * @author Clinton Begin
@@ -47,10 +47,14 @@ public class XMLScriptBuilder extends BaseBuilder {
     super(configuration);
     this.context = context;
     this.parameterType = parameterType;
+    //重点看下这个方法
     initNodeHandlerMap();
   }
 
 
+  /**
+   * 这里会初始化一些节点处理器，后面会看到使用的地方
+   */
   private void initNodeHandlerMap() {
     nodeHandlerMap.put("trim", new TrimHandler());
     nodeHandlerMap.put("where", new WhereHandler());
@@ -64,6 +68,7 @@ public class XMLScriptBuilder extends BaseBuilder {
   }
 
   public SqlSource parseScriptNode() {
+    //重点看下这个方法
     MixedSqlNode rootSqlNode = parseDynamicTags(context);
     SqlSource sqlSource;
     if (isDynamic) {
@@ -77,23 +82,35 @@ public class XMLScriptBuilder extends BaseBuilder {
   protected MixedSqlNode parseDynamicTags(XNode node) {
     List<SqlNode> contents = new ArrayList<>();
     NodeList children = node.getNode().getChildNodes();
+    //获取子节点并遍历
     for (int i = 0; i < children.getLength(); i++) {
       XNode child = node.newXNode(children.item(i));
       if (child.getNode().getNodeType() == Node.CDATA_SECTION_NODE || child.getNode().getNodeType() == Node.TEXT_NODE) {
+        //如果当前节点是一个文本节点的话
         String data = child.getStringBody("");
+        //如果是文本节点的话，封装成TextSqlNode
         TextSqlNode textSqlNode = new TextSqlNode(data);
+        //通过查看SQLNode中是否含有“${}”来判断是否是动态的SQL
         if (textSqlNode.isDynamic()) {
+          //如果是动态SQL的话，最终会封装成TextSqlNode
           contents.add(textSqlNode);
           isDynamic = true;
         } else {
+          //不是动态SQL，会被封装成StaticTextSqlNode
           contents.add(new StaticTextSqlNode(data));
         }
       } else if (child.getNode().getNodeType() == Node.ELEMENT_NODE) { // issue #628
+        //如果当前节点是一个元素节点的话
         String nodeName = child.getNode().getNodeName();
+        //获取节点处理器，节点处理器会在上面的initNodeHandlerMap方法中被初始化
         NodeHandler handler = nodeHandlerMap.get(nodeName);
         if (handler == null) {
           throw new BuilderException("Unknown element <" + nodeName + "> in SQL statement.");
         }
+        /*
+        分别调用不同节点处理器的处理方法来进行解析，最终返回对应的SqlNode
+        注意：这里会使用到递归的方式来进行解析，递归调用本方法去解析子节点
+         */
         handler.handleNode(child, contents);
         isDynamic = true;
       }

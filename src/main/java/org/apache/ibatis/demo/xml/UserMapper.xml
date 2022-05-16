@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD//EN Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.apache.ibatis.demo.dao.UserDAO">
+
+  <cache></cache>
+
+  <sql id="allColumns">
+    id
+    ,
+		`name`,
+		sex,
+        phone,
+		address
+  </sql>
+
+  <select id="list" resultType="org.apache.ibatis.demo.entity.UserDO">
+    SELECT
+    <include refid="allColumns"/>
+    FROM `user`
+  </select>
+
+  <select id="getById" resultType="org.apache.ibatis.demo.entity.UserDO">
+    SELECT
+    <include refid="allColumns"/>
+    FROM `user`
+    <where>
+      <if test="id > 0">
+        AND id = #{id}
+      </if>
+    </where>
+  </select>
+
+</mapper>

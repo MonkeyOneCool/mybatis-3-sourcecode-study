@@ -15,24 +15,19 @@
  */
 package org.apache.ibatis.mapping;
 
+import org.apache.ibatis.builder.InitializingObject;
+import org.apache.ibatis.cache.Cache;
+import org.apache.ibatis.cache.CacheException;
+import org.apache.ibatis.cache.decorators.*;
+import org.apache.ibatis.cache.impl.PerpetualCache;
+import org.apache.ibatis.reflection.MetaObject;
+import org.apache.ibatis.reflection.SystemMetaObject;
+
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-
-import org.apache.ibatis.builder.InitializingObject;
-import org.apache.ibatis.cache.Cache;
-import org.apache.ibatis.cache.CacheException;
-import org.apache.ibatis.cache.decorators.BlockingCache;
-import org.apache.ibatis.cache.decorators.LoggingCache;
-import org.apache.ibatis.cache.decorators.LruCache;
-import org.apache.ibatis.cache.decorators.ScheduledCache;
-import org.apache.ibatis.cache.decorators.SerializedCache;
-import org.apache.ibatis.cache.decorators.SynchronizedCache;
-import org.apache.ibatis.cache.impl.PerpetualCache;
-import org.apache.ibatis.reflection.MetaObject;
-import org.apache.ibatis.reflection.SystemMetaObject;
 
 /**
  * @author Clinton Begin
@@ -90,15 +85,19 @@ public class CacheBuilder {
   }
 
   public Cache build() {
+    //设置默认缓存实现类为PerpetualCache
     setDefaultImplementations();
+    //PerpetualCache实例化
     Cache cache = newBaseCacheInstance(implementation, id);
     setCacheProperties(cache);
     // issue #352, do not apply decorators to custom caches
     if (PerpetualCache.class.equals(cache.getClass())) {
       for (Class<? extends Cache> decorator : decorators) {
+        //获取上面的LruCache并实例化出来，这里有多个的话会一层一层包装
         cache = newCacheDecoratorInstance(decorator, cache);
         setCacheProperties(cache);
       }
+      //设置其他的装饰器
       cache = setStandardDecorators(cache);
     } else if (!LoggingCache.class.isAssignableFrom(cache.getClass())) {
       cache = new LoggingCache(cache);
@@ -108,6 +107,7 @@ public class CacheBuilder {
 
   private void setDefaultImplementations() {
     if (implementation == null) {
+      //设置默认缓存实现类为PerpetualCache
       implementation = PerpetualCache.class;
       if (decorators.isEmpty()) {
         decorators.add(LruCache.class);
@@ -122,15 +122,20 @@ public class CacheBuilder {
         metaCache.setValue("size", size);
       }
       if (clearInterval != null) {
+        //装饰者模式，将PerpetualCache装饰为ScheduledCache（一小时会清空一次缓存）
         cache = new ScheduledCache(cache);
         ((ScheduledCache) cache).setClearInterval(clearInterval);
       }
       if (readWrite) {
+        //装饰者模式，将ScheduledCache装饰为SerializedCache（序列化和反序列化存储）
         cache = new SerializedCache(cache);
       }
+      //装饰者模式，将SerializedCache装饰为LoggingCache（打印缓存命中的日志信息）
       cache = new LoggingCache(cache);
+      //装饰者模式，将LoggingCache装饰为SynchronizedCache（方法上加上synchronized关键字，防止并发）
       cache = new SynchronizedCache(cache);
       if (blocking) {
+        //装饰者模式，将SynchronizedCache装饰为BlockingCache（内部维护了一个同步锁，获取不到锁资源的时候会被阻塞，这样可以用来防止请求被穿透，避免将请求打到数据库上）
         cache = new BlockingCache(cache);
       }
       return cache;
@@ -150,25 +155,25 @@ public class CacheBuilder {
           if (String.class == type) {
             metaCache.setValue(name, value);
           } else if (int.class == type
-              || Integer.class == type) {
+            || Integer.class == type) {
             metaCache.setValue(name, Integer.valueOf(value));
           } else if (long.class == type
-              || Long.class == type) {
+            || Long.class == type) {
             metaCache.setValue(name, Long.valueOf(value));
           } else if (short.class == type
-              || Short.class == type) {
+            || Short.class == type) {
             metaCache.setValue(name, Short.valueOf(value));
           } else if (byte.class == type
-              || Byte.class == type) {
+            || Byte.class == type) {
             metaCache.setValue(name, Byte.valueOf(value));
           } else if (float.class == type
-              || Float.class == type) {
+            || Float.class == type) {
             metaCache.setValue(name, Float.valueOf(value));
           } else if (boolean.class == type
-              || Boolean.class == type) {
+            || Boolean.class == type) {
             metaCache.setValue(name, Boolean.valueOf(value));
           } else if (double.class == type
-              || Double.class == type) {
+            || Double.class == type) {
             metaCache.setValue(name, Double.valueOf(value));
           } else {
             throw new CacheException("Unsupported property type for cache: '" + name + "' of type " + type);
@@ -205,8 +210,10 @@ public class CacheBuilder {
   }
 
   private Cache newCacheDecoratorInstance(Class<? extends Cache> cacheClass, Cache base) {
+    //拿到Cache的构造器
     Constructor<? extends Cache> cacheConstructor = getCacheDecoratorConstructor(cacheClass);
     try {
+      //调用构造器进行包装
       return cacheConstructor.newInstance(base);
     } catch (Exception e) {
       throw new CacheException("Could not instantiate cache decorator (" + cacheClass + "). Cause: " + e, e);

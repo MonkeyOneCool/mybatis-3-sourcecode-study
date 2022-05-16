@@ -15,15 +15,15 @@
  */
 package org.apache.ibatis.session;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.Reader;
-import java.util.Properties;
-
 import org.apache.ibatis.builder.xml.XMLConfigBuilder;
 import org.apache.ibatis.exceptions.ExceptionFactory;
 import org.apache.ibatis.executor.ErrorContext;
 import org.apache.ibatis.session.defaults.DefaultSqlSessionFactory;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.Reader;
+import java.util.Properties;
 
 /**
  * Builds {@link SqlSession} instances.
@@ -46,16 +46,18 @@ public class SqlSessionFactoryBuilder {
 
   public SqlSessionFactory build(Reader reader, String environment, Properties properties) {
     try {
+      //解析XML
       XMLConfigBuilder parser = new XMLConfigBuilder(reader, environment, properties);
+      //走到这里，已经将配置文件中的内容解析成了Configuration对象
       return build(parser.parse());
     } catch (Exception e) {
       throw ExceptionFactory.wrapException("Error building SqlSession.", e);
     } finally {
       ErrorContext.instance().reset();
       try {
-      	if (reader != null) {
-      	  reader.close();
-      	}
+        if (reader != null) {
+          reader.close();
+        }
       } catch (IOException e) {
         // Intentionally ignore. Prefer previous error.
       }
@@ -83,9 +85,9 @@ public class SqlSessionFactoryBuilder {
     } finally {
       ErrorContext.instance().reset();
       try {
-      	if (inputStream != null) {
-      	  inputStream.close();
-      	}
+        if (inputStream != null) {
+          inputStream.close();
+        }
       } catch (IOException e) {
         // Intentionally ignore. Prefer previous error.
       }
@@ -93,6 +95,7 @@ public class SqlSessionFactoryBuilder {
   }
 
   public SqlSessionFactory build(Configuration config) {
+    //将Configuration放进DefaultSqlSessionFactory中，后面就能够拿着Configuration中的配置执行了
     return new DefaultSqlSessionFactory(config);
   }
 
